@@ -36,7 +36,7 @@ A `communities.json` containing a dicitonary where the key is the subreddit name
 You can also only repost posts that meet a certain condition. This can be done like so:
 ```
     "test": {
-        "community": "test@lemmy.ml",
+        "destination": "test@lemmy.ml",
         "condition": "'[meta]' in post.title.lower()"
     }
 ```
