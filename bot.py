@@ -29,7 +29,7 @@ l.login(lemmy_creds['account'].split('@')[0], lemmy_creds['password'])
 
 # Funcitons
 
-def sync_community(subreddit_name, community_address):
+def sync_community(subreddit_name, community_address, delay=0):
     subreddit = r.subreddit(subreddit_name)
     community = plemmy.responses.GetCommunityResponse(
         _check_api_error(
@@ -46,7 +46,7 @@ def sync_community(subreddit_name, community_address):
         print(f"\tReposting \"{submission.title}\"")
         make_lemmy_post(submission, community)
 
-        time.sleep(10)
+        time.sleep(delay)
 
 def make_lemmy_post(reddit_post, community):
     post = plemmy.responses.PostResponse(_check_api_error(l.create_post(
@@ -68,11 +68,18 @@ def _check_api_error(api_response):
         raise Exception(f'Lemmy API error `{api_response.json().get("error")}`')
     return api_response
 
+def get_min_post_delay(site):
+    s = plemmy.LemmyHttp(site)
+    local_site_rate_limit = plemmy.responses.GetSiteResponse(_check_api_error(s.get_site())).site_view.local_site_rate_limit
+
+    return ((local_site_rate_limit.post / local_site_rate_limit.post_per_second) // 1) + 1  # As per https://lemmy.ml/comment/2351393
+
 # if __name__ == "__main__":
 if True:
     for k, v in communities.items():
-        print(f"Syncing /r/{k} to {v} ...")
-        sync_community(k, v)
+        min_delay = get_min_post_delay('https://' + v.split("@")[1])
+        print(f"Syncing /r/{k} to {v} (min post delay: {min_delay}s) ...")
+        sync_community(k, v, delay=min_delay)
 
 # Save updated config
 
