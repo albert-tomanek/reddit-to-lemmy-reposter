@@ -1,4 +1,4 @@
-**A bot to mirror posts from Reddit subreddits to Lemmy communities.**
+## A bot to mirror posts from Reddit subreddits to Lemmy communities.
 We don't want to clutter Lemmy with too much bot-generated content, but for subreddits like /r/EarthPorn where the users subscribe mainly for the content (and not for the comments) this still makes sense.
   
 This bot aims to be easy to use, with just a few self-explanatory JSON config files needed to set it up.

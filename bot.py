@@ -96,7 +96,7 @@ try:
     # Iterate over each entry in `communities.json`
     for subreddit, val in communities.items():
         if isinstance(val, dict):
-            community = val["community"]
+            community = val["destination"]
             condition = val.get("condition", None)
         else:
             community = val
