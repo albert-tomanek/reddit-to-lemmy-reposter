@@ -41,14 +41,21 @@ def sync_community(subreddit_name, community_address, delay=0):
         if submission.id == last_posts.get(subreddit_name):
             break   # Since we're sorting by new, this means we've reposted all new posts since the last execution.
         if i == 0:
-            last_posts[subreddit_name] = submission.id
+            newest_post = submission.id
 
         print(f"\tReposting \"{submission.title}\"")
         make_lemmy_post(submission, community)
 
         time.sleep(delay)
+    
+    last_posts[subreddit_name]
 
 def make_lemmy_post(reddit_post, community):
+    if  not reddit_post.is_self and (
+        reddit_post.url.startswith('/r/') and '/comments/' in reddit_post.url):
+        # It's a cross-post. Find the original.
+        reddit_post = r.submission(reddit_post.url.split('/')[4])    # A crosspost url will be something like "/r/GainsForTheBrains/comments/16cek4i/early_mornings/"
+
     post = plemmy.responses.PostResponse(_check_api_error(l.create_post(
         community.id,
         reddit_post.title,
@@ -64,8 +71,9 @@ def make_lemmy_post(reddit_post, community):
     ))
 
 def _check_api_error(api_response):
-    if api_response.json().get('error'):
-        raise Exception(f'Lemmy API error `{api_response.json().get("error")}`')
+    # if api_response.json().get('error'):
+    if not 200 <= api_response.status_code < 300:
+        raise Exception(f'Lemmy API error (code {api_response.status_code}) `{api_response.text}`')
     return api_response
 
 def get_min_post_delay(site):
@@ -75,13 +83,11 @@ def get_min_post_delay(site):
     return ((local_site_rate_limit.post / local_site_rate_limit.post_per_second) // 1) + 1  # As per https://lemmy.ml/comment/2351393
 
 # if __name__ == "__main__":
-if True:
+try:
     for k, v in communities.items():
         min_delay = get_min_post_delay('https://' + v.split("@")[1])
         print(f"Syncing /r/{k} to {v} (min post delay: {min_delay}s) ...")
         sync_community(k, v, delay=min_delay)
-
-# Save updated config
-
-with open(WORKDIR + '/last_posts.json', 'w') as f:
-    json.dump(last_posts, f, indent=4)
+finally:
+    with open(WORKDIR + '/last_posts.json', 'w') as f:
+        json.dump(last_posts, f, indent=4)
