@@ -1,6 +1,7 @@
 import json, os
 import time
 import praw, plemmy
+import re
 
 # Load config
 
@@ -29,7 +30,7 @@ l.login(lemmy_creds['account'].split('@')[0], lemmy_creds['password'])
 
 # Funcitons
 
-def sync_community(subreddit_name, community_address, delay=0):
+def sync_community(subreddit_name, community_address, condition: str=None, delay=0):
     subreddit = r.subreddit(subreddit_name)
     community = plemmy.responses.GetCommunityResponse(
         _check_api_error(
@@ -39,9 +40,13 @@ def sync_community(subreddit_name, community_address, delay=0):
 
     existing_reposts = past_posts.get(subreddit_name, [])
 
-    for i, submission in enumerate(subreddit.new(limit=20)):    # We limit ourselves to syncing the 10 newest posts so that we don't overwhelm the Lemmy servers
+    for i, submission in enumerate(subreddit.new(limit=10)):    # We limit ourselves to syncing the 10 newest posts so that we don't overwhelm the Lemmy servers
         if submission.id in existing_reposts:
             continue
+
+        if condition:
+            if not should_repost(submission, condition):
+                continue
 
         print(f"\tReposting \"{submission.title}\"")
         make_lemmy_post(submission, community)
@@ -51,19 +56,14 @@ def sync_community(subreddit_name, community_address, delay=0):
     
     past_posts[subreddit_name] = existing_reposts
 
+def should_repost(submission, cond: str) -> bool:
+    return eval(cond, {"post": submission, "re": re})
+
 def make_lemmy_post(reddit_post, community):
     if  not reddit_post.is_self and (
         reddit_post.url.startswith('/r/') and '/comments/' in reddit_post.url):
         # It's a cross-post. Find the original.
         reddit_post = r.submission(reddit_post.url.split('/')[4])    # A crosspost url will be something like "/r/GainsForTheBrains/comments/16cek4i/early_mornings/"
-
-    print(f"""
-        comm={community.id},
-        title={reddit_post.title},
-        body={(reddit_post.selftext if reddit_post.is_self else None)},
-        url={(None if reddit_post.is_self else reddit_post.url)},
-        nsfw={reddit_post.over_18}
-""")
 
     post = plemmy.responses.PostResponse(_check_api_error(l.create_post(
         community.id,
@@ -93,10 +93,18 @@ def get_min_post_delay(site):
 
 # if __name__ == "__main__":
 try:
-    for k, v in communities.items():
-        min_delay = get_min_post_delay('https://' + v.split("@")[1])
-        print(f"Syncing /r/{k} to {v} (min post delay: {min_delay}s) ...")
-        sync_community(k, v, delay=min_delay)
+    # Iterate over each entry in `communities.json`
+    for subreddit, val in communities.items():
+        if isinstance(val, dict):
+            community = val["community"]
+            condition = val.get("condition", None)
+        else:
+            community = val
+            condition = None
+
+        min_delay = get_min_post_delay('https://' + community.split("@")[1])
+        print(f"Syncing /r/{subreddit} to {community} (min post delay: {min_delay}s) ...")
+        sync_community(subreddit, community, condition=condition, delay=min_delay)
 finally:
     with open(WORKDIR + '/past_posts.json', 'w') as f:
         json.dump(past_posts, f, indent=4)

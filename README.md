@@ -6,14 +6,7 @@ You need to run the script every time you want reposts to be made. You might wan
 
 ### Setup
 
-Before you use the bot you need to create two JSON files in the same directory as the script:
-
-A `communities.json` containing a dicitonary where the key is the subreddit name and the value is the target Lemmy community address:
-```
-{
-    "test": "test@lemmy.ml"
-}
-```
+Before you use the bot you need to create the following JSON files in the same directory as the script.
 
 A `reddit_credentials.json` with:
 ```
@@ -32,6 +25,25 @@ A `lemmy_credentials.json` with:
 ```
 
 When specifying Lemmy account names and community addresses, you **do not** need to prefix them with a `@` or `!`, as this is known from the field that the address is in.
+
+A `communities.json` containing a dicitonary where the key is the subreddit name and the value is the target Lemmy community address:
+```
+{
+    "test": "test@lemmy.ml"
+}
+```
+
+You can also only repost posts that meet a certain condition. This can be done like so:
+```
+    "test": {
+        "community": "test@lemmy.ml",
+        "condition": "'[meta]' in post.title.lower()"
+    }
+```
+
+The condition is written in Python and the following variables are available:
+* `post`, the source Reddit post in quesiton as a PRAW [`Submission`](https://praw.readthedocs.io/en/latest/code_overview/models/submission.html) object.
+* `re`, the module for evaluating regular expressions.
 
 ### Scheduling the command
 
