@@ -16,10 +16,10 @@ with open(WORKDIR + '/lemmy_credentials.json', 'r') as f:
     lemmy_creds = json.load(f)
 
 try:
-    with open(WORKDIR + '/last_posts.json', 'r') as f:
-        last_posts = json.load(f)
+    with open(WORKDIR + '/past_posts.json', 'r') as f:
+        past_posts = json.load(f)
 except Exception as err:
-    last_posts: {str: str} = {}     # {subreddit: post_id}
+    past_posts: {str: str} = {}     # {subreddit: [reddit_post_ids]}
 
 # Initialize clients
 
@@ -37,24 +37,33 @@ def sync_community(subreddit_name, community_address, delay=0):
         )
     ).community_view.community     # As per https://github.com/tjkessler/plemmy/blob/main/examples/search_and_post.ipynb
 
-    for i, submission in enumerate(subreddit.new(limit=10)):    # We limit ourselves to syncing the 10 newest posts so that we don't overwhelm the Lemmy servers
-        if submission.id == last_posts.get(subreddit_name):
-            break   # Since we're sorting by new, this means we've reposted all new posts since the last execution.
-        if i == 0:
-            newest_post = submission.id
+    existing_reposts = past_posts.get(subreddit_name, [])
+
+    for i, submission in enumerate(subreddit.new(limit=20)):    # We limit ourselves to syncing the 10 newest posts so that we don't overwhelm the Lemmy servers
+        if submission.id in existing_reposts:
+            continue
 
         print(f"\tReposting \"{submission.title}\"")
         make_lemmy_post(submission, community)
+        existing_reposts.insert(0, submission.id)
 
         time.sleep(delay)
     
-    last_posts[subreddit_name]
+    past_posts[subreddit_name] = existing_reposts
 
 def make_lemmy_post(reddit_post, community):
     if  not reddit_post.is_self and (
         reddit_post.url.startswith('/r/') and '/comments/' in reddit_post.url):
         # It's a cross-post. Find the original.
         reddit_post = r.submission(reddit_post.url.split('/')[4])    # A crosspost url will be something like "/r/GainsForTheBrains/comments/16cek4i/early_mornings/"
+
+    print(f"""
+        comm={community.id},
+        title={reddit_post.title},
+        body={(reddit_post.selftext if reddit_post.is_self else None)},
+        url={(None if reddit_post.is_self else reddit_post.url)},
+        nsfw={reddit_post.over_18}
+""")
 
     post = plemmy.responses.PostResponse(_check_api_error(l.create_post(
         community.id,
@@ -89,5 +98,6 @@ try:
         print(f"Syncing /r/{k} to {v} (min post delay: {min_delay}s) ...")
         sync_community(k, v, delay=min_delay)
 finally:
-    with open(WORKDIR + '/last_posts.json', 'w') as f:
-        json.dump(last_posts, f, indent=4)
+    with open(WORKDIR + '/past_posts.json', 'w') as f:
+        json.dump(past_posts, f, indent=4)
+    print("Updated list of reposts.")
