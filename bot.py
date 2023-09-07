@@ -57,7 +57,7 @@ def make_lemmy_post(reddit_post, community):
         nsfw=reddit_post.over_18
     ))).post_view.post
     
-    comment_text = f"Original post made by [/u/{reddit_post.author.name}](https://reddit.com/u/{reddit_post.author.name}) on [/r/{reddit_post.subreddit.display_name}]({reddit_post.permalink})."
+    comment_text = f"Original post made by [/u/{reddit_post.author.name}](https://reddit.com/u/{reddit_post.author.name}) on [/r/{reddit_post.subreddit.display_name}](https://reddit.com/{reddit_post.permalink})."
     _check_api_error(l.create_comment(
         comment_text,
         post.id
